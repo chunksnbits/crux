@@ -1,5 +1,6 @@
 package com.chimbori.crux.articles;
 
+import com.chimbori.crux.articles.configuration.Configuration;
 import com.chimbori.crux.common.StringUtils;
 
 import org.jsoup.Jsoup;
@@ -8,10 +9,14 @@ import org.jsoup.nodes.Element;
 
 import java.util.Collection;
 
+import static com.chimbori.crux.articles.configuration.StandardConfiguration.withStandardConfiguration;
+
 public class ArticleExtractor {
   private final String url;
   private final Document document;
   private final Article article;
+
+  private Configuration configuration = withStandardConfiguration();
 
   /**
    * Number of words that can be read by an average person in one minute.
@@ -57,6 +62,11 @@ public class ArticleExtractor {
     return new ArticleExtractor(url, document);
   }
 
+  public ArticleExtractor configure(Configuration configuration) {
+    this.configuration = configuration;
+    return this;
+  }
+
   public ArticleExtractor extractMetadata() {
     article.title = MetadataHelpers.extractTitle(document);
     article.description = MetadataHelpers.extractDescription(document);
@@ -90,7 +100,7 @@ public class ArticleExtractor {
 
     // Extract images before post-processing, because that step may remove images.
     article.images = ImageHelpers.extractImages(bestMatchElement);
-    article.document = PostprocessHelpers.postprocess(bestMatchElement, article.images);
+    article.document = PostprocessHelpers.configure(configuration).postprocess(bestMatchElement, article.images);
     article.imageUrl = StringUtils.makeAbsoluteUrl(article.url, MetadataHelpers.extractImageUrl(document, article.images));
     return this;
   }
