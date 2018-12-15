@@ -2,9 +2,12 @@ package com.chimbori.crux.articles;
 
 import com.chimbori.crux.TestHelper;
 
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.*;
 
 public class ArticleExtractorTest {
   private static final String EXAMPLE_URL = "http://example.com/";
@@ -57,5 +60,15 @@ public class ArticleExtractorTest {
 
     Article galileoArticle = TestHelper.extractFromTestFile("https://en.wikipedia.org/wiki/Galileo_Galilei", "wikipedia_galileo.html");
     assertEquals(53, galileoArticle.estimatedReadingTimeMinutes);
+  }
+
+  @Test
+  public void retainsImportantImagesInContent() {
+    Article article = ArticleExtractor.with(EXAMPLE_URL, "<p>\n" +
+        "Visible Text that’s still longer than our minimum text size limits\n" +
+        "<img src=\"https://img.scr.io/img.jpg\" alt=\"important\">" +
+        "Default Text but longer that’s still longer than our minimum text size limits/p>").extractContent().article();
+
+    assertFalse(article.document.getElementsByTag("img").isEmpty());
   }
 }

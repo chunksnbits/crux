@@ -41,7 +41,7 @@ class PostprocessHelpers {
    * to the list of tags that callers can be expected to be able to handle.
    */
   private static final Set<String> RETAIN_TAGS = new HashSet<>(Arrays.asList(
-      "p", "b", "i", "u", "strong", "em", "a", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote"
+      "p", "b", "i", "u", "strong", "em", "a", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "img", "figure"
   ));
 
   /**
@@ -49,7 +49,7 @@ class PostprocessHelpers {
    * within these tags is not subject to the {@code MIN_LENGTH_FOR_PARAGRAPHS} requirement.
    */
   private static final Set<String> TAGS_EXEMPT_FROM_MIN_LENGTH_CHECK = new HashSet<>(Arrays.asList(
-      "b", "i", "u", "strong", "em", "a", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote"
+      "b", "i", "u", "strong", "em", "a", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "img", "figure"
   ));
 
   /**
@@ -57,7 +57,7 @@ class PostprocessHelpers {
    * will be retained.
    */
   private static final Set<String> ATTRIBUTES_TO_RETAIN_IN_HTML = new HashSet<>(Arrays.asList(
-      "href"
+      "href", "src", "alt"
   ));
 
   /**
@@ -67,17 +67,17 @@ class PostprocessHelpers {
    * top-level children.
    */
   private static final Set<String> RETAIN_TAGS_TOP_LEVEL = new HashSet<>(Arrays.asList(
-      "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "li"
+      "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "li", "img", "figure"
   ));
 
-  static Document postprocess(Element topNode) {
+  static Document postprocess(Element topNode, List<Article.Image> images) {
     Log.i("postprocess");
     Document doc = new Document("");
     if (topNode == null) {
       return doc;
     }
 
-    removeNodesWithNegativeScores(topNode);
+    removeNodesWithNegativeScores(topNode, extractImageWithPositiveScore(images));
     replaceLineBreaksWithSpaces(topNode);
     removeUnlikelyChildNodes(topNode);
     removeTagsButRetainContent(topNode);
@@ -152,7 +152,7 @@ class PostprocessHelpers {
       Log.i("removeShortParagraphs: [%s] isExemptFromMinTextLengthCheck : %b", childNode, isExemptFromMinTextLengthCheck);
 
       if (text == null ||
-          text.isEmpty() ||
+          (text.isEmpty() && !containsImage(childNode)) ||
           (!isExemptFromMinTextLengthCheck && text.length() < MIN_LENGTH_FOR_PARAGRAPHS) ||
           text.length() > StringUtils.countLetters(text) * 2) {
         Log.printAndRemove(childNode, "removeShortParagraphs:");
@@ -170,14 +170,32 @@ class PostprocessHelpers {
     }
   }
 
-  static private void removeNodesWithNegativeScores(Element topNode) {
+  static private void removeNodesWithNegativeScores(Element topNode, Elements imageElements) {
     Elements elementsWithGravityScore = topNode.select(ExtractionHelpers.GRAVITY_SCORE_SELECTOR);
+
     for (Element element : elementsWithGravityScore) {
+      // Retain images that have previously been identified by a high score.
+      if (imageElements.contains(element)) {
+        continue;
+      }
+
       int score = Integer.parseInt(element.attr(ExtractionHelpers.GRAVITY_SCORE_ATTRIBUTE));
       if (score < 0 || element.text().length() < MIN_LENGTH_FOR_PARAGRAPHS) {
         Log.printAndRemove(element, "removeNodesWithNegativeScores");
       }
     }
+  }
+
+  static private Elements extractImageWithPositiveScore(List<Article.Image> images) {
+    Elements imageElements = new Elements();
+
+    for (Article.Image image : images) {
+      if (image.weight > 0) {
+        imageElements.add(image.element);
+      }
+    }
+
+    return imageElements;
   }
 
   static private boolean isUnlikely(Element element) {
@@ -198,9 +216,12 @@ class PostprocessHelpers {
         keysToRemove.add(attribute.getKey());
       }
     }
-    for (String key: keysToRemove) {
+    for (String key : keysToRemove) {
       node.removeAttr(key);
     }
   }
 
+  private static boolean containsImage(Node node) {
+    return node instanceof Element && ((Element) node).select("img").size() != 0;
+  }
 }
