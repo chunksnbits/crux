@@ -9,18 +9,21 @@ import org.jsoup.select.Elements;
 import java.util.LinkedList;
 import java.util.List;
 
+import static com.chimbori.crux.articles.ExtractionHelpers.GRAVITY_SCORE_ATTRIBUTE;
+import static com.chimbori.crux.articles.ExtractionHelpers.GRAVITY_SCORE_SELECTOR;
+
 /**
  * Cleans up the best-match Element after one has been picked, in order to provide a sanitized
  * output tree to the caller.
  */
 class PostprocessHelpers {
 
-  private final Configuration config;
+  private final Configuration configuration;
 
-  private PostprocessHelpers(Configuration config) {
-    this.config = config;
+  private PostprocessHelpers(Configuration configuration) {
+    this.configuration = configuration;
   }
-  
+
   static PostprocessHelpers configure(Configuration config) {
     return new PostprocessHelpers(config);
   }
@@ -33,6 +36,7 @@ class PostprocessHelpers {
     }
 
     removeNodesWithNegativeScores(topNode, extractImageWithPositiveScore(images));
+    unwrapFigures(topNode);
     replaceLineBreaksWithSpaces(topNode);
     removeUnlikelyChildNodes(topNode);
     removeTagsButRetainContent(topNode);
@@ -45,6 +49,15 @@ class PostprocessHelpers {
       doc.appendChild(node.clone());  // TODO: Don’t copy each item separately.
     }
     return doc;
+  }
+
+  private void unwrapFigures(Element topNode) {
+    for (Element element : topNode.select("figure")) {
+      Element childNode = element.getElementsByTag("img").first();
+      if (childNode != null) {
+        element.replaceWith(childNode);
+      }
+    }
   }
 
   private void replaceLineBreaksWithSpaces(Element topNode) {
@@ -63,7 +76,7 @@ class PostprocessHelpers {
 
   private void removeTopLevelTagsNotLikelyToBeParagraphs(Element element) {
     for (Element childElement : element.children()) {
-      if (!config.getRetainTagsTopLevel().contains(childElement.tagName())) {
+      if (!configuration.retainTagsTopLevel().contains(childElement.tagName())) {
         Log.printAndRemove(childElement, "removeTopLevelTagsNotLikelyToBeParagraphs");
       }
     }
@@ -71,7 +84,7 @@ class PostprocessHelpers {
 
   private void removeTagsNotLikelyToBeParagraphs(Element element) {
     for (Element childElement : element.children()) {
-      if (!config.getRetainTags().contains(childElement.tagName())) {
+      if (!configuration.retainTags().contains(childElement.tagName())) {
         Log.printAndRemove(childElement, "removeTagsNotLikelyToBeParagraphs");
       } else if (childElement.children().size() > 0) {
         removeTagsNotLikelyToBeParagraphs(childElement);
@@ -82,7 +95,7 @@ class PostprocessHelpers {
   private void removeTagsButRetainContent(Element element) {
     for (Element childElement : element.children()) {
       removeTagsButRetainContent(childElement);
-      if (config.getRemoveTagsButRetainContent().contains(childElement.tagName())) {
+      if (configuration.removeTagsButRetainContent().contains(childElement.tagName())) {
         Log.i("removeTagsButRetainContent: [%s] %s", childElement.tagName(), childElement.outerHtml());
         childElement.tagName("p");  // Set the wrapper tag to <p> instead of unwrapping them.
       }
@@ -103,16 +116,16 @@ class PostprocessHelpers {
       } else if (childNode instanceof Element) {
         Element childElement = (Element) childNode;
         text = childElement.text().trim();
-        isExemptFromTextRequirement = !config.getTagsExemptFromEmptyTextCheck().contains(childElement.tagName());
-        isExemptFromMinTextLengthCheck = config.getTagsExemptFromMinLengthCheck().contains(childElement.tagName());
+        isExemptFromTextRequirement = !configuration.tagsExemptFromEmptyTextCheck().contains(childElement.tagName());
+        isExemptFromMinTextLengthCheck = configuration.tagsExemptFromMinLengthCheck().contains(childElement.tagName());
       }
 
       Log.i("removeShortParagraphs: [%s] isExemptFromMinTextLengthCheck : %b", childNode, isExemptFromMinTextLengthCheck);
 
       if (text == null ||
-          (!isExemptFromTextRequirement && text.isEmpty()) ||
-          (!isExemptFromMinTextLengthCheck && text.length() < config.getMinLengthForParagraphs()) ||
-          text.length() > StringUtils.countLetters(text) * 2) {
+              (!isExemptFromTextRequirement && text.isEmpty()) ||
+              (!isExemptFromMinTextLengthCheck && text.length() < configuration.minLengthForParagraphs()) ||
+              text.length() > StringUtils.countLetters(text) * 2) {
         Log.printAndRemove(childNode, "removeShortParagraphs:");
       }
     }
@@ -129,7 +142,7 @@ class PostprocessHelpers {
   }
 
   private void removeNodesWithNegativeScores(Element topNode, Elements imageElements) {
-    Elements elementsWithGravityScore = topNode.select(ExtractionHelpers.GRAVITY_SCORE_SELECTOR);
+    Elements elementsWithGravityScore = topNode.select(GRAVITY_SCORE_SELECTOR);
 
     for (Element element : elementsWithGravityScore) {
       // Retain images that have previously been identified by a high score.
@@ -137,8 +150,8 @@ class PostprocessHelpers {
         continue;
       }
 
-      int score = Integer.parseInt(element.attr(ExtractionHelpers.GRAVITY_SCORE_ATTRIBUTE));
-      if (score < 0 || element.text().length() < config.getMinLengthForParagraphs()) {
+      int score = Integer.parseInt(element.attr(GRAVITY_SCORE_ATTRIBUTE));
+      if (score < 0 || element.text().length() < configuration.minLengthForParagraphs()) {
         Log.printAndRemove(element, "removeNodesWithNegativeScores");
       }
     }
@@ -160,8 +173,8 @@ class PostprocessHelpers {
     String styleAttribute = element.attr("style");
     String classAttribute = element.attr("class");
     return classAttribute != null && classAttribute.toLowerCase().contains("caption")
-        || config.getUnlikelyCssStyles().matcher(styleAttribute).find()
-        || classAttribute != null && config.getUnlikelyCssStyles().matcher(classAttribute).find();
+            || configuration.unlikelyCssStyles().matcher(styleAttribute).find()
+            || classAttribute != null && configuration.unlikelyCssStyles().matcher(classAttribute).find();
   }
 
   private void removeDisallowedAttributes(Element node) {
@@ -170,7 +183,7 @@ class PostprocessHelpers {
     }
     List<String> keysToRemove = new LinkedList<>();
     for (Attribute attribute : node.attributes()) {
-      if (!config.getAttributesToRetainInHtml().contains(attribute.getKey())) {
+      if (!configuration.attributesToRetainInHtml().contains(attribute.getKey())) {
         keysToRemove.add(attribute.getKey());
       }
     }

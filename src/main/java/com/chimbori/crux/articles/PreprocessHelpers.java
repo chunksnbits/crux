@@ -1,5 +1,6 @@
 package com.chimbori.crux.articles;
 
+import com.chimbori.crux.articles.configuration.Configuration;
 import com.chimbori.crux.common.Log;
 
 import org.jsoup.nodes.Document;
@@ -11,7 +12,17 @@ import org.jsoup.select.Elements;
  * Performs basic sanitization before starting the extraction process.
  */
 class PreprocessHelpers {
-  static void preprocess(Document doc) {
+  private final Configuration configuration;
+
+  private PreprocessHelpers(Configuration configuration) {
+    this.configuration = configuration;
+  }
+
+  static PreprocessHelpers configure(Configuration configuration) {
+    return new PreprocessHelpers(configuration);
+  }
+
+  void preprocess(Document doc) {
     Log.i("preprocess");
     stripUnlikelyCandidates(doc);
     removeScriptsStyles(doc);
@@ -22,7 +33,7 @@ class PreprocessHelpers {
    * Removes unlikely candidates from HTML. It often ends up removing more than just the unlikely
    * candidates, so exercise caution when enabling this.
    */
-  private static void stripUnlikelyCandidates(Document doc) {
+  private void stripUnlikelyCandidates(Document doc) {
     if (true) {
       return;  // Temporarily disabled; see comment above.
     }
@@ -30,13 +41,13 @@ class PreprocessHelpers {
     for (Element child : doc.select("body").select("*")) {
       String className = child.className().toLowerCase();
       String id = child.id().toLowerCase();
-      if (ExtractionHelpers.NEGATIVE_CSS_CLASSES_AND_IDS.matcher(className).find() || ExtractionHelpers.NEGATIVE_CSS_CLASSES_AND_IDS.matcher(id).find()) {
+      if (configuration.negativeCssClassesAndIds().matcher(className).find() || configuration.negativeCssClassesAndIds().matcher(id).find()) {
         Log.printAndRemove(child, "stripUnlikelyCandidates");
       }
     }
   }
 
-  private static void removeScriptsStyles(Document doc) {
+  private void removeScriptsStyles(Document doc) {
     Elements scripts = doc.getElementsByTag("script");
     for (Element item : scripts) {
       Log.printAndRemove(item, "removeScriptsStyles('script')");
@@ -53,7 +64,7 @@ class PreprocessHelpers {
     }
   }
 
-  private static void removeComments(Node node) {
+  private void removeComments(Node node) {
     for (int i = 0; i < node.childNodes().size();) {
       Node child = node.childNode(i);
       if (child.nodeName().equals("#comment"))

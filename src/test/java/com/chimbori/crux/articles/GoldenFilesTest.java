@@ -6,10 +6,8 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static com.chimbori.crux.articles.configuration.StandardConfigurationWithImages.standardConfigurationWithImages;
+import static org.junit.Assert.*;
 
 public class GoldenFilesTest {
   @Test
@@ -696,6 +694,16 @@ public class GoldenFilesTest {
     assertEquals("http://i4.ytimg.com/vi/wlupmjrfaB4/default.jpg", article.imageUrl);
     assertEquals("http://www.youtube.com/v/wlupmjrfaB4?version=3", article.videoUrl);
     assertEquals("http://s.ytimg.com/yt/favicon-vflZlzSbU.ico", article.faviconUrl);
+  }
+
+  @Test
+  public void testGeekwire() {
+    Article article = TestHelper.extractFromTestFile(
+      "https://www.geekwire.com/2018/new-word-processor-wars-fresh-crop-productivity-apps-trying-reinvent-workday/",
+      "geekwire.html",
+            standardConfigurationWithImages);
+
+    assertFalse(article.document.getElementsByTag("img").isEmpty());
   }
 
   private static void assertStartsWith(String expected, String actual) {

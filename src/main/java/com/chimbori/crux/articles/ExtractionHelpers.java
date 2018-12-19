@@ -1,44 +1,26 @@
 package com.chimbori.crux.articles;
 
+import com.chimbori.crux.articles.configuration.Configuration;
 import com.chimbori.crux.common.StringUtils;
-
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
+import java.util.*;
 
 class ExtractionHelpers {
-  private ExtractionHelpers() {
+
+  static final String GRAVITY_SCORE_ATTRIBUTE = "gravityScore";
+  static final String GRAVITY_SCORE_SELECTOR = String.format("*[%s]", GRAVITY_SCORE_ATTRIBUTE);
+
+  private final Configuration configuration;
+
+  private ExtractionHelpers(Configuration configuration) {
+    this.configuration = configuration;
   }
 
-  public static final String GRAVITY_SCORE_ATTRIBUTE = "gravityScore";
-  public static final String GRAVITY_SCORE_SELECTOR = String.format("*[%s]", GRAVITY_SCORE_ATTRIBUTE);
-
-  private static final Pattern IMPORTANT_NODES =
-      Pattern.compile("p|div|td|h1|h2|article|section");
-
-  private static final Pattern UNLIKELY_CSS_CLASSES_AND_IDS =
-      Pattern.compile("com(bx|ment|munity)|dis(qus|cuss)|e(xtra|[-]?mail)|foot|"
-          + "header|menu|re(mark|ply)|rss|sh(are|outbox)|sponsor"
-          + "a(d|ll|gegate|rchive|ttachment)|(pag(er|ination))|popup|print|"
-          + "login|si(debar|gn|ngle)|facebook|twitter|email");
-
-  private static final Pattern POSITIVE_CSS_CLASSES_AND_IDS =
-      Pattern.compile("(^(body|content|h?entry|main|page|post|text|blog|story|haupt))"
-          + "|arti(cle|kel)|instapaper_body");
-
-  public static final Pattern NEGATIVE_CSS_CLASSES_AND_IDS =
-      Pattern.compile("nav($|igation)|user|com(ment|bx)|(^com-)|contact|"
-          + "foot|masthead|(me(dia|ta))|outbrain|promo|related|scroll|(sho(utbox|pping))|"
-          + "sidebar|sponsor|tags|tool|widget|player|disclaimer|toc|infobox|vcard|post-ratings");
-
-  private static final Pattern NEGATIVE_CSS_STYLES =
-      Pattern.compile("hidden|display: ?none|font-size: ?small");
+  static ExtractionHelpers configure(Configuration configuration) {
+    return new ExtractionHelpers(configuration);
+  }
 
   /**
    * Weights current element. By matching it with positive candidates and
@@ -48,7 +30,7 @@ class ExtractionHelpers {
    *
    * @param e Element to weight, along with child nodes
    */
-  static int getWeight(Element e) {
+  int getWeight(Element e) {
     int weight = calcWeight(e);
     weight += (int) Math.round(e.ownText().length() / 100.0 * 10);
     weight += weightChildNodes(e);
@@ -67,7 +49,7 @@ class ExtractionHelpers {
    *
    * @param rootEl Element, who's child nodes will be weighted
    */
-  private static int weightChildNodes(Element rootEl) {
+  private int weightChildNodes(Element rootEl) {
     int weight = 0;
     Element caption = null;
     List<Element> pEls = new ArrayList<>(5);
@@ -118,11 +100,11 @@ class ExtractionHelpers {
     return weight;
   }
 
-  private static void addScore(Element el, int score) {
+  private void addScore(Element el, int score) {
     setScore(el, getScore(el) + score);
   }
 
-  private static int getScore(Element el) {
+  private int getScore(Element el) {
     try {
       return Integer.parseInt(el.attr(GRAVITY_SCORE_ATTRIBUTE));
     } catch (NumberFormatException ex) {
@@ -130,11 +112,11 @@ class ExtractionHelpers {
     }
   }
 
-  private static void setScore(Element el, int score) {
+  private void setScore(Element el, int score) {
     el.attr(GRAVITY_SCORE_ATTRIBUTE, Integer.toString(score));
   }
 
-  private static int calcWeightForChild(Element child, String ownText) {
+  private int calcWeightForChild(Element child, String ownText) {
     int c = StringUtils.countMatches(ownText, "&quot;");
     c += StringUtils.countMatches(ownText, "&lt;");
     c += StringUtils.countMatches(ownText, "&gt;");
@@ -150,31 +132,31 @@ class ExtractionHelpers {
     return val;
   }
 
-  private static int calcWeight(Element element) {
+  private int calcWeight(Element element) {
     String className = element.className();
     String id = element.id();
     String style = element.attr("style");
 
     int weight = 0;
-    if (POSITIVE_CSS_CLASSES_AND_IDS.matcher(className).find()) {
+    if (configuration.positiveCssClassesAndIds().matcher(className).find()) {
       weight += 35;
     }
-    if (POSITIVE_CSS_CLASSES_AND_IDS.matcher(id).find()) {
+    if (configuration.positiveCssClassesAndIds().matcher(id).find()) {
       weight += 40;
     }
-    if (UNLIKELY_CSS_CLASSES_AND_IDS.matcher(className).find()) {
+    if (configuration.unlikelyCssClassesAndIds().matcher(className).find()) {
       weight -= 20;
     }
-    if (UNLIKELY_CSS_CLASSES_AND_IDS.matcher(id).find()) {
+    if (configuration.unlikelyCssClassesAndIds().matcher(id).find()) {
       weight -= 20;
     }
-    if (NEGATIVE_CSS_CLASSES_AND_IDS.matcher(className).find()) {
+    if (configuration.negativeCssClassesAndIds().matcher(className).find()) {
       weight -= 50;
     }
-    if (NEGATIVE_CSS_CLASSES_AND_IDS.matcher(id).find()) {
+    if (configuration.negativeCssClassesAndIds().matcher(id).find()) {
       weight -= 50;
     }
-    if (style != null && !style.isEmpty() && NEGATIVE_CSS_STYLES.matcher(style).find()) {
+    if (style != null && !style.isEmpty() && configuration.negativeCssStyles().matcher(style).find()) {
       weight -= 50;
     }
     return weight;
@@ -183,11 +165,11 @@ class ExtractionHelpers {
   /**
    * @return a set of all important nodes
    */
-  static Collection<Element> getNodes(Document doc) {
+  Collection<Element> getNodes(Document doc) {
     Map<Element, Object> nodes = new LinkedHashMap<>(64);
     int score = 100;
     for (Element el : doc.select("body").select("*")) {
-      if (IMPORTANT_NODES.matcher(el.tagName()).matches()) {
+      if (configuration.importantNodes().matcher(el.tagName()).matches()) {
         nodes.put(el, null);
         setScore(el, score);
         score = score / 2;

@@ -25,7 +25,7 @@ import java.net.URL;
  *
  * Android added code directly to their implementation of java.net.URI and java.net.URL, which are
  * both final classes. This makes the Android implementations fundamentally incompatible with the
- * standard JDK.
+ * standardConfiguration JDK.
  *
  * Instead of this approach, we add side-car classes that provide the same functionality without
  * altering the JDK API.

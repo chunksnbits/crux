@@ -3,7 +3,6 @@ package com.chimbori.crux.articles;
 import com.chimbori.crux.common.Log;
 import com.chimbori.crux.common.StringUtils;
 import com.chimbori.crux.urls.CruxURL;
-
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
@@ -104,8 +103,14 @@ class ImageHelpers {
       }
       // cruxURL may be null if trying to pass a "data://" URI, which the Java URL parser can’t handle.
 
-      image.weight += image.height >= 50 ? 20 : -20;
-      image.weight += image.width >= 50 ? 20 : -20;
+      String widthAttrValue = image.element.attr("weight");
+      boolean explicitWidth = widthAttrValue != null && !widthAttrValue.isEmpty();
+
+      String heightAttributValue = image.element.attr("height");
+      boolean explicitHeight = heightAttributValue != null && !heightAttributValue.isEmpty();
+
+      image.weight += explicitWidth ? (image.width >= 50 ? 20 : -20) : 0;
+      image.weight += explicitHeight ? (image.height >= 50 ? 20 : -20) : 0;
       image.weight += image.src.startsWith("data:") ? -50 : 0;
       image.weight += image.src.endsWith(".gif") ? -20 : 0;
       image.weight += image.src.endsWith(".jpg") ? 5 : 0;

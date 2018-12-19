@@ -9,14 +9,12 @@ import org.jsoup.nodes.Element;
 
 import java.util.Collection;
 
-import static com.chimbori.crux.articles.configuration.StandardConfiguration.withStandardConfiguration;
-
 public class ArticleExtractor {
   private final String url;
   private final Document document;
   private final Article article;
 
-  private Configuration configuration = withStandardConfiguration();
+  private Configuration configuration = Configuration.standardConfiguration;
 
   /**
    * Number of words that can be read by an average person in one minute.
@@ -82,13 +80,17 @@ public class ArticleExtractor {
   }
 
   public ArticleExtractor extractContent() {
-    PreprocessHelpers.preprocess(document);
+    ExtractionHelpers extractionHelpers = ExtractionHelpers.configure(configuration);
+    PreprocessHelpers preprocessHelpers = PreprocessHelpers.configure(configuration);
+    PostprocessHelpers postprocessHelpers = PostprocessHelpers.configure(configuration);
 
-    Collection<Element> nodes = ExtractionHelpers.getNodes(document);
+    preprocessHelpers.preprocess(document);
+
+    Collection<Element> nodes = extractionHelpers.getNodes(document);
     int maxWeight = 0;
     Element bestMatchElement = null;
     for (Element element : nodes) {
-      int currentWeight = ExtractionHelpers.getWeight(element);
+      int currentWeight = extractionHelpers.getWeight(element);
       if (currentWeight > maxWeight) {
         maxWeight = currentWeight;
         bestMatchElement = element;
@@ -100,7 +102,7 @@ public class ArticleExtractor {
 
     // Extract images before post-processing, because that step may remove images.
     article.images = ImageHelpers.extractImages(bestMatchElement);
-    article.document = PostprocessHelpers.configure(configuration).postprocess(bestMatchElement, article.images);
+    article.document = postprocessHelpers.postprocess(bestMatchElement, article.images);
     article.imageUrl = StringUtils.makeAbsoluteUrl(article.url, MetadataHelpers.extractImageUrl(document, article.images));
     return this;
   }

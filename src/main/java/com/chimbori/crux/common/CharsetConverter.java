@@ -53,7 +53,7 @@ public class CharsetConverter {
   }
 
   public static StringWithEncoding readStream(InputStream inputStream) {
-    // HTTP 1.1 standard is iso-8859-1 not utf8 but we force utf-8 as YouTube assumes it.
+    // HTTP 1.1 standardConfiguration is iso-8859-1 not utf8 but we force utf-8 as YouTube assumes it.
     String encoding = UTF8;
 
     BufferedInputStream in = null;
